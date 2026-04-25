@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  INVESTOR
+  ADMIN
+  SELLER
+}
+
+model User {
+  id            String        @id @default(uuid())
+  walletAddress String        @unique @map("wallet_address")
+  name          String?
+  role          UserRole      @default(INVESTOR)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  transactions  Transaction[]
+
+  @@map("users")
+}
+
+model Property {
+  id                 String        @id @default(uuid())
+  title              String
+  description        String?
+  price              Decimal       @db.Decimal(20, 2)
+  totalFractions     Int           @map("total_fractions")
+  availableFractions Int           @map("available_fractions")
+  model3dUrl         String?       @map("model_3d_url")
+  mintAddress        String?       @map("mint_address")
+  metadataUri        String?       @map("metadata_uri")
+  ownerWallet        String        @map("owner_wallet")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+  transactions       Transaction[]
+
+  @@map("properties")
+}
+
+model Transaction {
+  id               String   @id @default(uuid())
+  buyerId          String   @map("buyer_id")
+  propertyId       String   @map("property_id")
+  fractionAmount   Int      @map("fraction_amount")
+  transactionHash  String   @map("transaction_hash")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  buyer    User     @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([buyerId])
+  @@index([propertyId])
+  @@map("transactions")
+}

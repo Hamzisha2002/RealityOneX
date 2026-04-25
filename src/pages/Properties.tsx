@@ -2,27 +2,127 @@ import { motion } from 'framer-motion';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { useMetaverseStore } from '@/store/metaverseStore';
-import { MapPin, TrendingUp, Users, Coins, ArrowRight, Globe } from 'lucide-react';
+import type { Property } from '@/types/property';
+import { MapPin, TrendingUp, Users, Coins, ArrowRight, Globe, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { useEffect, useRef } from 'react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+const PROPERTIES_API_URL = 'http://localhost:3001/api/properties';
 
 // Register GSAP ScrollTrigger plugin
 if (typeof window !== 'undefined') {
   gsap.registerPlugin(ScrollTrigger);
 }
 
+interface ApiProperty {
+  id: string;
+  title: string;
+  description: string | null;
+  price: string;
+  totalFractions: number;
+  availableFractions: number;
+  model3dUrl: string | null;
+}
+
+function hashString(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+function mapApiPropertyToProperty(row: ApiProperty): Property {
+  const priceNum = Number(row.price);
+  const total = row.totalFractions;
+  const available = row.availableFractions;
+  const sold = Math.max(0, total - available);
+
+  let status: Property['status'] = 'Available';
+  if (available === 0) status = 'Sold';
+  else if (sold > 0 && available < total) status = 'Reserved';
+
+  const palette = ['#2dd4bf', '#3b82f6', '#f59e0b', '#22c55e', '#8b5cf6', '#10b981'];
+  const color = palette[hashString(row.id) % palette.length];
+
+  const h = hashString(row.id);
+  const coordinates = {
+    x: ((h % 100) / 100) * 80 - 40,
+    y: 0,
+    z: (((h >> 8) % 100) / 100) * 80 - 40,
+  };
+
+  const priceInPKR = new Intl.NumberFormat('en-PK', {
+    style: 'currency',
+    currency: 'PKR',
+    maximumFractionDigits: 0,
+  }).format(priceNum);
+
+  return {
+    id: row.id,
+    name: row.title,
+    description: row.description ?? '',
+    price: priceNum,
+    priceInPKR,
+    priceInSol: Math.max(1, Math.round(priceNum / 1_500_000)),
+    location: 'Karachi, Pakistan',
+    areaName: 'RealityOneX',
+    coordinates,
+    size: { width: 5, height: 16, depth: 5 },
+    buildingType: 'residential',
+    color,
+    owner: null,
+    fractionalShares: sold,
+    totalShares: total,
+    isForSale: available > 0,
+    status,
+    features: [],
+  };
+}
+
 const Properties = () => {
-  const { properties, selectProperty } = useMetaverseStore();
+  const { selectProperty } = useMetaverseStore();
+  const [listings, setListings] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const filtersRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadProperties() {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(PROPERTIES_API_URL, { signal: controller.signal });
+        if (!res.ok) {
+          throw new Error(`Request failed (${res.status})`);
+        }
+        const data: ApiProperty[] = await res.json();
+        setListings(data.map(mapApiPropertyToProperty));
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        setError(err instanceof Error ? err.message : 'Failed to load properties');
+        setListings([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadProperties();
+
+    return () => controller.abort();
+  }, []);
+
   // Get property image URL based on property type and area
-  const getPropertyImage = (property: typeof properties[0]) => {
+  const getPropertyImage = (property: Property) => {
     // Use Unsplash API with property-specific keywords for realistic images
     const imageMap: Record<string, string> = {
       'dha-001': 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop',
@@ -64,23 +164,23 @@ const Properties = () => {
     return typeMap[property.buildingType] || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop';
   };
 
-  // Mock data for tokenization
-  const getTokenPrice = (property: typeof properties[0]) => {
+  // Tokenization helpers (deterministic “mock” stats derived from listing data)
+  const getTokenPrice = (property: Property) => {
     return (property.price / property.totalShares).toFixed(0);
   };
 
-  const getTokenizationProgress = (property: typeof properties[0]) => {
+  const getTokenizationProgress = (property: Property) => {
     return (property.fractionalShares / property.totalShares) * 100;
   };
 
-  const getInvestorsCount = (property: typeof properties[0]) => {
-    // Mock: random investor count based on shares
-    return Math.floor(property.fractionalShares / 10) + Math.floor(Math.random() * 50);
+  const getInvestorsCount = (property: Property) => {
+    const base = Math.floor(property.fractionalShares / 10);
+    return base + (hashString(property.id) % 50);
   };
 
-  const getGrowthPercentage = () => {
-    // Mock: random growth between 5-25%
-    return (Math.random() * 20 + 5).toFixed(1);
+  const getGrowthPercentage = (property: Property) => {
+    const n = hashString(`${property.id}-growth`);
+    return ((n % 200) / 10 + 5).toFixed(1);
   };
 
   useEffect(() => {
@@ -174,7 +274,7 @@ const Properties = () => {
         observer.disconnect();
       };
     }
-  }, [properties]);
+  }, [listings]);
 
   return (
     <div className="min-h-screen bg-background grid-pattern">
@@ -205,13 +305,36 @@ const Properties = () => {
           ))}
         </div>
 
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-24 gap-4 text-muted-foreground">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" aria-hidden />
+            <p>Loading properties…</p>
+          </div>
+        )}
+
+        {error && !loading && (
+          <Alert variant="destructive" className="mb-8 max-w-xl">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Could not load listings</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {!loading && !error && listings.length === 0 && (
+          <p className="text-muted-foreground py-12 text-center">
+            No properties yet. Add listings via your API (POST /api/properties).
+          </p>
+        )}
+
         {/* Property grid */}
         <div ref={gridRef} className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {properties.map((property, index) => {
+          {!loading &&
+            !error &&
+            listings.map((property) => {
             const tokenPrice = getTokenPrice(property);
             const progress = getTokenizationProgress(property);
             const investorsCount = getInvestorsCount(property);
-            const growthPercent = getGrowthPercentage();
+            const growthPercent = getGrowthPercentage(property);
 
             return (
               <motion.div

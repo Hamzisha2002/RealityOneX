@@ -29,3 +29,6 @@ metaverse-realty-hub-/
 
 .vercel
 .env*.local
+
+# Backend secrets
+backend/.env

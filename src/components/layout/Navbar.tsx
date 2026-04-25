@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Home, LayoutDashboard, Map, Building2, LogIn } from 'lucide-react';
-import { WalletConnect } from '@/components/wallet/WalletConnect';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useAuthStore } from '@/store/authStore';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { Button } from '@/components/ui/button';
@@ -74,8 +74,10 @@ export const Navbar = ({ transparent = false }: { transparent?: boolean }) => {
             })}
           </nav>
 
-          <div className="flex items-center gap-3">
-            <WalletConnect />
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 min-w-0">
+            <div className="nav-wallet-adapter shrink-0 min-w-0 max-w-[min(100vw-7rem,12rem)] sm:max-w-[17rem]">
+              <WalletMultiButton />
+            </div>
             {isAuthenticated ? (
               <UserMenu />
             ) : (
