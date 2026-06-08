@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Building2, Coins, Shield, Users, Zap, Globe, Search, ShoppingCart, TrendingUp, RefreshCw } from 'lucide-react';
+import { ArrowRight, Building2, Coins, Shield, Users, Zap, Globe, Search, ShoppingCart, BadgeCheck, ScanSearch, Headphones, MonitorPlay } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
@@ -8,11 +8,15 @@ import { BackgroundVideo } from '@/components/background/BackgroundVideo';
 import { ParticleTextBackground } from '@/components/background/ParticleTextBackground';
 import { WhyChooseBackgroundVideo } from '@/components/background/WhyChooseBackgroundVideo';
 import { SharedBackgroundVideo } from '@/components/background/SharedBackgroundVideo';
+import { ReadyInvestBackgroundVideo } from '@/components/background/ReadyInvestBackgroundVideo';
 import { ParticleText3D } from '@/components/text/ParticleText3D';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useScrollPerformance } from '@/hooks/useScrollPerformance';
+import { useMetaverseStore } from '@/store/metaverseStore';
+import { useWebXRSupport } from '@/hooks/useWebXRSupport';
+import { R1XLogo } from '@/components/brand/R1XLogo';
 
 // Register GSAP ScrollTrigger plugin with performance optimizations
 if (typeof window !== 'undefined') {
@@ -37,8 +41,8 @@ const features = [
   },
   {
     icon: Coins,
-    title: 'NFT Tokenization',
-    description: 'Every property is a unique NFT on the blockchain',
+    title: 'SPL Share Tokenization',
+    description: 'Each listed property has a verified SPL share mint and vault',
   },
   {
     icon: Users,
@@ -62,13 +66,6 @@ const features = [
   },
 ];
 
-const stats = [
-  { value: 'PKR 50Cr+', label: 'Total Volume' },
-  { value: '2,847', label: 'Properties Listed' },
-  { value: '15,200+', label: 'Active Users' },
-  { value: '99.9%', label: 'Uptime' },
-];
-
 const howItWorksSteps = [
   {
     number: '01',
@@ -84,21 +81,125 @@ const howItWorksSteps = [
   },
   {
     number: '03',
-    icon: TrendingUp,
-    title: 'Earn Returns',
-    description: 'Receive passive income and capital appreciation as property values increase over time.',
+    icon: BadgeCheck,
+    title: 'Verify Ownership',
+    description: 'View your actual SPL token holdings and investor receipt directly from Solana.',
   },
   {
     number: '04',
-    icon: RefreshCw,
-    title: 'Trade Anytime',
-    description: 'Liquidate your tokens instantly on our marketplace whenever you want to exit.',
+    icon: ScanSearch,
+    title: 'Inspect the Ledger',
+    description: 'Review the property PDA, mint, vault, supply, holders, and confirmed transactions.',
   },
 ];
 
 const Index = () => {
   // Optimize scroll performance globally
   useScrollPerformance();
+  const properties = useMetaverseStore((state) => state.properties);
+  const { isChecking, isSupported } = useWebXRSupport();
+  const totalShares = properties.reduce((total, property) => total + property.totalShares, 0);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const stats = [
+    { value: properties.length.toLocaleString(), label: 'Verified Listings' },
+    { value: totalShares.toLocaleString(), label: 'Minted Property Shares' },
+    { value: 'Atomic', label: 'SOL + Token Settlement' },
+    { value: 'Primary', label: 'Current Market Type' },
+  ];
+
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero) return;
+
+    const layers = hero.querySelectorAll('[data-hero-layer]');
+    const accents = hero.querySelectorAll('[data-hero-accent]');
+
+    const enter = () => {
+      gsap.to(hero, {
+        scale: 1.015,
+        boxShadow: '0 36px 120px rgba(45, 212, 191, 0.2)',
+        duration: 0.55,
+        ease: 'power3.out',
+      });
+      gsap.to(layers, {
+        z: (index) => 28 + index * 14,
+        y: (index) => -3 - index * 3,
+        duration: 0.55,
+        stagger: 0.035,
+        ease: 'power3.out',
+      });
+      gsap.to(accents, {
+        opacity: 1,
+        scale: 1,
+        rotate: (index) => (index % 2 === 0 ? 8 : -8),
+        duration: 0.65,
+        stagger: 0.05,
+        ease: 'back.out(1.7)',
+      });
+    };
+
+    const move = (event: MouseEvent) => {
+      const rect = hero.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / rect.width;
+      const y = (event.clientY - rect.top) / rect.height;
+      const rotateY = (x - 0.5) * 14;
+      const rotateX = (0.5 - y) * 10;
+
+      gsap.to(hero, {
+        rotateX,
+        rotateY,
+        '--hero-x': `${x * 100}%`,
+        '--hero-y': `${y * 100}%`,
+        duration: 0.42,
+        ease: 'power3.out',
+      });
+      gsap.to(layers, {
+        x: (index) => (x - 0.5) * (10 + index * 8),
+        y: (index) => (y - 0.5) * (8 + index * 5),
+        duration: 0.42,
+        ease: 'power3.out',
+      });
+    };
+
+    const leave = () => {
+      gsap.to(hero, {
+        rotateX: 0,
+        rotateY: 0,
+        scale: 1,
+        '--hero-x': '50%',
+        '--hero-y': '50%',
+        boxShadow: '0 24px 90px rgba(0, 0, 0, 0.32)',
+        duration: 0.7,
+        ease: 'elastic.out(1, 0.55)',
+      });
+      gsap.to(layers, {
+        x: 0,
+        y: 0,
+        z: 0,
+        duration: 0.65,
+        stagger: 0.025,
+        ease: 'power3.out',
+      });
+      gsap.to(accents, {
+        opacity: 0.55,
+        scale: 0.92,
+        rotate: 0,
+        duration: 0.5,
+        stagger: 0.035,
+        ease: 'power2.out',
+      });
+    };
+
+    hero.addEventListener('mouseenter', enter);
+    hero.addEventListener('mousemove', move);
+    hero.addEventListener('mouseleave', leave);
+
+    return () => {
+      hero.removeEventListener('mouseenter', enter);
+      hero.removeEventListener('mousemove', move);
+      hero.removeEventListener('mouseleave', leave);
+    };
+  }, []);
   
   return (
     <div className="min-h-screen bg-background relative" style={{ willChange: 'scroll-position' }}>
@@ -117,11 +218,15 @@ const Index = () => {
 
         <div className="container mx-auto px-4 relative z-10 pt-16">
           <motion.div
+            ref={heroRef}
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-center max-w-4xl mx-auto"
+            className="hero-3d-shell text-center max-w-4xl mx-auto rounded-[2.5rem] px-4 py-7 md:px-8"
           >
+            <span data-hero-accent className="hero-line hero-line-top" />
+            <span data-hero-accent className="hero-line hero-line-bottom" />
+            <span data-hero-accent className="hero-sweep" />
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -130,49 +235,63 @@ const Index = () => {
                 scale: 1.05,
                 transition: { duration: 0.3 }
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 glass-card mb-6 hover:border-primary/30 transition-colors duration-300 cursor-default"
+              data-hero-layer="badge" className="inline-flex items-center gap-2 px-4 py-2 cinematic-card mb-6 hover:border-primary/50 transition-all duration-300 cursor-default hover:-translate-y-1"
             >
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
               <span className="text-sm text-muted-foreground"> Decentralized Metaverse Real Estate Platform</span>
             </motion.div>
 
+            <div data-hero-layer="logo" className="mb-6 flex justify-center">
+              <R1XLogo />
+            </div>
+
             {/* PRIMARY TITLE - Three.js Particle Text */}
-            <div className="relative h-32 md:h-40 mb-6">
+            <div data-hero-layer="title" className="hero-title-stage relative h-32 md:h-40 mb-6">
               <ParticleText3D />
               {/* Hidden HTML for accessibility */}
               <h1 className="sr-only">RealityOneX</h1>
             </div>
 
-            <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Own, explore, and invest in tokenized real estate  inside the metaverse
+            <p data-hero-layer="copy" className="hero-copy-card mx-auto mb-8 max-w-3xl text-balance text-xl text-slate-200 md:text-2xl">
+              A cinematic metaverse real estate platform where users explore property digital twins, verify ownership on Solana, and complete secure wallet transactions.
             </p>
+
+            <div data-hero-layer="actions" className="mx-auto mb-6 grid max-w-3xl gap-4 rounded-[2rem] border border-primary/20 bg-background/45 p-3 shadow-2xl shadow-primary/10 backdrop-blur-xl md:grid-cols-2 perspective-1000">
+              <Link to="/vr" className="group rounded-[1.5rem] border border-primary/25 bg-primary/10 p-5 text-left transition-all duration-500 hover:-translate-y-2 hover:rotate-1 hover:border-primary/70 hover:bg-primary/15 hover:shadow-2xl hover:shadow-primary/15">
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="grid h-11 w-11 place-items-center rounded-2xl bg-primary/15 text-primary">
+                    <Headphones className="h-5 w-5" />
+                  </div>
+                  <span className="rounded-full border border-primary/30 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-primary">
+                    {isChecking ? 'Checking' : isSupported ? 'VR Ready' : 'Preview'}
+                  </span>
+                </div>
+                <h2 className="font-display text-xl font-bold text-foreground">Enter VR Experience</h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Open the immersive RealityOneX lobby with floating property listings, 3D exploration, and walkthrough handoff.
+                </p>
+              </Link>
+
+              <Link to="/properties" className="group rounded-[1.5rem] border border-white/10 bg-muted/20 p-5 text-left transition-all duration-500 hover:-translate-y-2 hover:-rotate-1 hover:border-accent/60 hover:bg-muted/30 hover:shadow-2xl hover:shadow-accent/10">
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="grid h-11 w-11 place-items-center rounded-2xl bg-accent/15 text-accent">
+                    <MonitorPlay className="h-5 w-5" />
+                  </div>
+                  <span className="rounded-full border border-accent/30 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-accent">Secure Web</span>
+                </div>
+                <h2 className="font-display text-xl font-bold text-foreground">Continue Normal Website</h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Browse the marketplace, connect Phantom, tokenize assets, and complete Solana transactions safely.
+                </p>
+              </Link>
+            </div>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to="/metaverse">
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.98 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <Button variant="glow" size="xl" className="gap-2 w-full sm:w-auto">
-                    Enter Metaverse
-                    <motion.div
-                      animate={{ x: [0, 5, 0] }}
-                      transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                    >
-                      <ArrowRight className="w-5 h-5" />
-                    </motion.div>
-                  </Button>
-                </motion.div>
-              </Link>
-              <Link to="/properties">
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.98 }}
-                  transition={{ duration: 0.2 }}
-                >
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.2 }}>
                   <Button variant="outline" size="xl" className="gap-2 w-full sm:w-auto bg-background/50 backdrop-blur-sm hover:bg-background/70 hover:border-primary/50 transition-all duration-300">
-                    Explore  Properties
+                    Explore 3D City
+                    <ArrowRight className="w-5 h-5" />
                   </Button>
                 </motion.div>
               </Link>
@@ -197,7 +316,7 @@ const Index = () => {
                   scale: 1.05,
                   transition: { duration: 0.3, ease: "easeOut" }
                 }}
-                className="glass-card p-6 text-center cursor-pointer hover:shadow-lg hover:shadow-primary/20 transition-shadow duration-300"
+                className="cinematic-card p-6 text-center cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-primary/20"
               >
                 <div className="font-display text-3xl font-bold gradient-text-gold">
                   {stat.value}
@@ -242,7 +361,7 @@ const Index = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-background/90 via-background/85 to-background/90 z-[1] pointer-events-none" />
 
         {/* How It Works Section */}
-        <HowItWorksSection />
+        <ScrollStoryHowItWorksSection />
 
         {/* CTA Section */}
         <CTASection />
@@ -420,31 +539,33 @@ const CTASection = () => {
 
   return (
     <section ref={sectionRef} className="py-24 relative overflow-hidden">
+      {/* Background looping video for the Ready to Invest CTA */}
+      <ReadyInvestBackgroundVideo />
+      
+      {/* Subtle overlay to blend video with background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background/50 pointer-events-none z-[1]" />
+
       <div className="container mx-auto px-4 relative z-[2]">
         <div ref={contentRef}>
           <motion.div
             whileHover={{ 
-              scale: 1.02,
-              transition: { duration: 0.4, ease: "easeOut" }
+              y: -5,
+              scale: 1.015,
+              transition: { duration: 0.3, ease: "easeOut" }
             }}
-            className="glass-card-glow p-12 text-center max-w-4xl mx-auto cursor-pointer hover:shadow-2xl hover:shadow-primary/30 transition-shadow duration-500"
-            style={{
-              textShadow: '0 2px 8px rgba(0, 0, 0, 0.5)',
-            }}
+            className="relative p-12 md:p-16 text-center max-w-4xl mx-auto rounded-[2.5rem] border border-cyan-500/20 bg-slate-950/55 backdrop-blur-xl hover:border-cyan-400/40 hover:shadow-[0_0_50px_rgba(6,182,212,0.15)] transition-all duration-500 overflow-hidden"
           >
-            <h2 
-              className="font-display text-4xl font-bold mb-4 text-foreground"
-              style={{
-                textShadow: '0 2px 12px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 0, 0, 0.3)',
-              }}
-            >
-              Ready to Invest in  Digital Future?
+            {/* Holographic decorative neon lines / corner accents */}
+            <span className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-cyan-400/60 rounded-tl-xl pointer-events-none" />
+            <span className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-cyan-400/60 rounded-br-xl pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/5 to-transparent -translate-x-[150%] hover:animate-shimmer pointer-events-none" />
+
+            <h2 className="font-display text-4xl md:text-5xl font-black mb-4 leading-tight">
+              <span className="text-white">Ready to Invest in </span>
+              <span className="gradient-text-primary">Digital Future?</span>
             </h2>
             <p 
-              className="text-muted-foreground mb-8 max-w-xl mx-auto"
-              style={{
-                textShadow: '0 1px 4px rgba(0, 0, 0, 0.6)',
-              }}
+              className="text-slate-300 mb-8 max-w-xl mx-auto text-sm md:text-base leading-relaxed font-light font-sans"
             >
               Connect your wallet and start exploring premium virtual real estate opportunities today.
             </p>
@@ -453,8 +574,9 @@ const CTASection = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.98 }}
                 transition={{ duration: 0.2 }}
+                className="inline-block"
               >
-                <Button variant="glow" size="xl" className="gap-2">
+                <Button variant="glow" size="xl" className="gap-2.5 font-bold shadow-lg shadow-cyan-500/10 hover:shadow-cyan-500/30">
                   Start Exploring
                   <motion.div
                     animate={{ x: [0, 5, 0] }}
@@ -578,7 +700,7 @@ const HowItWorksSection = () => {
             }}
           >
             Get started with tokenized real estate in four simple steps. 
-            Own, earn, and trade property tokens seamlessly.
+            Purchase and verify property-share tokens transparently on Solana.
           </p>
         </div>
 
@@ -587,6 +709,208 @@ const HowItWorksSection = () => {
           {howItWorksSteps.map((step) => (
             <StepCard key={step.number} step={step} />
           ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+
+const ScrollStoryHowItWorksSection = () => {
+  const sectionRef = useRef<HTMLElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
+  const [activeStep, setActiveStep] = useState(0);
+
+  useEffect(() => {
+    if (!sectionRef.current || typeof ScrollTrigger === 'undefined') return;
+
+    const triggers = howItWorksSteps.map((_, index) => ScrollTrigger.create({
+      trigger: `[data-story-step="${index}"]`,
+      start: 'top 58%',
+      end: 'bottom 42%',
+      onEnter: () => setActiveStep(index),
+      onEnterBack: () => setActiveStep(index),
+    }));
+
+    const progressTween = progressRef.current
+      ? gsap.fromTo(progressRef.current, { scaleY: 0 }, {
+          scaleY: 1,
+          ease: 'none',
+          transformOrigin: 'top center',
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: 'top 62%',
+            end: 'bottom 38%',
+            scrub: 0.7,
+          },
+        })
+      : null;
+
+    const floatingItems = gsap.to('[data-story-orbit]', {
+      y: (index) => (index % 2 === 0 ? -18 : 18),
+      rotate: (index) => (index % 2 === 0 ? 8 : -8),
+      duration: 3.8,
+      repeat: -1,
+      yoyo: true,
+      ease: 'sine.inOut',
+      stagger: 0.25,
+    });
+
+    return () => {
+      triggers.forEach((trigger) => trigger.kill());
+      progressTween?.scrollTrigger?.kill();
+      progressTween?.kill();
+      floatingItems.kill();
+    };
+  }, []);
+
+  const ActiveIcon = howItWorksSteps[activeStep].icon;
+
+  const handleTilt = (event: React.MouseEvent<HTMLDivElement>) => {
+    const card = event.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const rotateX = ((y / rect.height) - 0.5) * -9;
+    const rotateY = ((x / rect.width) - 0.5) * 9;
+    card.style.setProperty('--tilt-x', `${rotateX}deg`);
+    card.style.setProperty('--tilt-y', `${rotateY}deg`);
+    card.style.setProperty('--spot-x', `${(x / rect.width) * 100}%`);
+    card.style.setProperty('--spot-y', `${(y / rect.height) * 100}%`);
+  };
+
+  const resetTilt = (event: React.MouseEvent<HTMLDivElement>) => {
+    const card = event.currentTarget;
+    card.style.setProperty('--tilt-x', '0deg');
+    card.style.setProperty('--tilt-y', '0deg');
+  };
+
+  return (
+    <section ref={sectionRef} className="relative overflow-hidden py-28 md:py-40">
+      <div className="absolute inset-0 depth-grid opacity-80" />
+      <div className="absolute left-1/2 top-24 h-[34rem] w-[34rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
+      <div data-story-orbit className="absolute left-[8%] top-44 hidden h-28 w-28 rounded-[2rem] border border-primary/20 bg-primary/5 shadow-2xl shadow-primary/10 md:block" />
+      <div data-story-orbit className="absolute right-[9%] top-[38%] hidden h-20 w-20 rounded-full border border-accent/25 bg-accent/5 shadow-2xl shadow-accent/10 md:block" />
+      <div data-story-orbit className="absolute bottom-24 left-[18%] hidden h-16 w-16 rotate-45 border border-secondary/25 bg-secondary/5 md:block" />
+
+      <div className="container relative z-[2] mx-auto px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.4 }}
+          transition={{ duration: 0.7, ease: 'easeOut' }}
+          className="mb-20 max-w-4xl"
+        >
+          <p className="mb-4 text-xs uppercase tracking-[0.38em] text-primary">Scroll to discover our process</p>
+          <h2 className="font-display text-4xl font-black leading-tight md:text-6xl">
+            <span className="gradient-text-primary">How RealityOneX</span>{' '}
+            <span className="text-white">turns virtual viewing into verified ownership</span>
+          </h2>
+          <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
+            A guided journey: immersive discovery first, secure blockchain execution second. Each scroll step reveals the next part of the real-estate tokenization flow.
+          </p>
+        </motion.div>
+
+        <div className="grid gap-10 lg:grid-cols-[0.88fr_1.12fr]">
+          <div className="lg:sticky lg:top-36 lg:h-[calc(100vh-11rem)]">
+            <motion.div
+              key={activeStep}
+              initial={{ opacity: 0, y: 28, rotateX: -10, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
+              transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+              onMouseMove={handleTilt}
+              onMouseLeave={resetTilt}
+              className="story-stage-card cinematic-card flex h-full min-h-[32rem] flex-col justify-between p-8 md:p-10"
+            >
+              <div className="pointer-events-none absolute inset-0 rounded-[1.5rem] bg-[radial-gradient(circle_at_var(--spot-x,50%)_var(--spot-y,50%),rgba(45,212,191,0.18),transparent_32%)]" />
+              <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full border border-primary/20" />
+              <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full border border-accent/20" />
+
+              <div className="relative z-10">
+                <div className="mb-10 flex items-center justify-between gap-6">
+                  <motion.span
+                    key={`num-${activeStep}`}
+                    initial={{ opacity: 0, x: -18 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="font-display text-8xl font-black leading-none text-primary/25 md:text-9xl"
+                  >
+                    {howItWorksSteps[activeStep].number}
+                  </motion.span>
+                  <motion.div
+                    key={`icon-${activeStep}`}
+                    initial={{ rotate: -18, scale: 0.8, opacity: 0 }}
+                    animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.5 }}
+                    className="relative grid h-20 w-20 place-items-center rounded-[1.75rem] border border-primary/35 bg-primary/10 text-primary shadow-[0_0_45px_rgba(45,212,191,0.25)]"
+                  >
+                    <div className="absolute inset-[-10px] rounded-[2rem] border border-primary/15 animate-pulse" />
+                    <ActiveIcon className="h-9 w-9" />
+                  </motion.div>
+                </div>
+
+                <p className="mb-4 font-mono text-xs uppercase tracking-[0.32em] text-primary">Active milestone</p>
+                <h3 className="font-display text-4xl font-black leading-tight text-white md:text-5xl">
+                  {howItWorksSteps[activeStep].title}
+                </h3>
+                <p className="mt-6 max-w-lg text-base leading-8 text-slate-300">
+                  {howItWorksSteps[activeStep].description}
+                </p>
+              </div>
+
+              <div className="relative z-10 mt-10 rounded-3xl border border-white/10 bg-background/45 p-5 font-mono text-xs text-muted-foreground shadow-inner">
+                <div className="mb-3 flex items-center justify-between text-primary">
+                  <span>Live milestone</span>
+                  <span>{activeStep + 1}/{howItWorksSteps.length}</span>
+                </div>
+                <div className="h-2.5 overflow-hidden rounded-full bg-muted/80">
+                  <motion.div
+                    className="h-full rounded-full bg-gradient-to-r from-primary via-secondary to-accent shadow-[0_0_18px_rgba(45,212,191,0.45)]"
+                    animate={{ width: `${((activeStep + 1) / howItWorksSteps.length) * 100}%` }}
+                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                  />
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          <div className="relative space-y-10 pb-8">
+            <div className="absolute left-5 top-8 hidden h-[calc(100%-4rem)] w-px bg-white/10 md:block">
+              <div ref={progressRef} className="h-full w-px origin-top bg-gradient-to-b from-primary via-secondary to-accent shadow-[0_0_18px_rgba(45,212,191,0.55)]" />
+            </div>
+
+            {howItWorksSteps.map((step, index) => {
+              const Icon = step.icon;
+              const isActive = activeStep === index;
+              return (
+                <motion.div
+                  data-story-step={index}
+                  key={step.number}
+                  initial={{ opacity: 0, y: 50, scale: 0.96 }}
+                  whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                  viewport={{ once: false, amount: 0.45 }}
+                  transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+                  onMouseMove={handleTilt}
+                  onMouseLeave={resetTilt}
+                  className={`story-step-card group relative ml-0 rounded-[2rem] p-7 transition-all duration-500 md:ml-16 ${isActive ? 'cinematic-card story-step-active scale-[1.015]' : 'holo-panel opacity-75 hover:opacity-100'}`}
+                >
+                  <div className={`absolute -left-[4.6rem] top-8 hidden h-12 w-12 place-items-center rounded-full border bg-background font-mono text-xs transition-all md:grid ${isActive ? 'border-primary text-primary shadow-[0_0_28px_rgba(45,212,191,0.35)]' : 'border-white/15 text-muted-foreground'}`}>
+                    {step.number}
+                  </div>
+                  <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_var(--spot-x,50%)_var(--spot-y,50%),rgba(45,212,191,0.14),transparent_28%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                  <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-start">
+                    <div className={`grid h-16 w-16 shrink-0 place-items-center rounded-2xl transition-all duration-500 ${isActive ? 'bg-primary/15 text-primary shadow-[0_0_32px_rgba(45,212,191,0.22)]' : 'bg-muted/35 text-muted-foreground'}`}>
+                      <Icon className="h-8 w-8" />
+                    </div>
+                    <div>
+                      <p className="mb-2 font-mono text-xs uppercase tracking-[0.32em] text-primary">Step {step.number}</p>
+                      <h3 className="font-display text-2xl font-black text-white md:text-3xl">{step.title}</h3>
+                      <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 md:text-base">{step.description}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </section>
@@ -721,7 +1045,7 @@ const FeaturesSection = () => {
                   scale: 1.02,
                   transition: { duration: 0.2, ease: "easeOut" }
                 }}
-                className="glass-card p-6 group hover:border-primary/50 transition-all duration-200 cursor-pointer hover:shadow-xl hover:shadow-primary/10"
+                className="cinematic-card p-6 group hover:border-primary/50 transition-all duration-300 cursor-pointer hover:shadow-xl hover:shadow-primary/10"
                 style={{
                   willChange: 'transform',
                   backfaceVisibility: 'hidden',
