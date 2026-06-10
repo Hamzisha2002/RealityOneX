@@ -473,12 +473,3 @@ export const properties: Property[] = [
   ...scheme33Properties,
 ];
 
-export const mockUserWallet = {
-  address: '7nYXs...3kPq',
-  balance: 156.8,
-  ownedProperties: ['prop-002'],
-  fractionalOwnership: [
-    { propertyId: 'prop-005', shares: 50 },
-    { propertyId: 'prop-003', shares: 25 },
-  ],
-};

@@ -1,40 +1,60 @@
 import { motion } from 'framer-motion';
 import { Navbar } from '@/components/layout/Navbar';
 import { useMetaverseStore } from '@/store/metaverseStore';
-import { Building2, Coins, PieChart, TrendingUp, Wallet, ExternalLink } from 'lucide-react';
+import { Building2, Coins, PieChart, TrendingUp, Wallet, Loader2, Plus, ShieldCheck, LockKeyhole } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { properties } from '@/data/properties';
+import { LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { toast } from 'sonner';
 import { DashboardBackgroundVideo } from '@/components/background/DashboardBackgroundVideo';
+import { CreatePropertyModal } from '@/components/property/CreatePropertyModal';
+import { useState } from 'react';
+import { useWalletPropertyHoldings } from '@/hooks/useWalletPropertyHoldings';
 
 const Dashboard = () => {
-  const { isWalletConnected, wallet } = useMetaverseStore();
+  const { isWalletConnected, wallet, setWalletBalance, properties, selectProperty } = useMetaverseStore();
+  const { connection } = useConnection();
+  const { publicKey } = useWallet();
+  const { setVisible: setWalletModalVisible } = useWalletModal();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isAirdropping, setIsAirdropping] = useState(false);
+  const isLocalnet = connection.rpcEndpoint.includes('127.0.0.1')
+    || connection.rpcEndpoint.includes('localhost');
 
-  const ownedProperties = wallet
-    ? properties.filter((p) => wallet.ownedProperties.includes(p.id))
-    : [];
+  const requestLocalAirdrop = async () => {
+    if (!publicKey || !isLocalnet || isAirdropping) return;
 
-  const fractionalHoldings = wallet
-    ? wallet.fractionalOwnership.map((fo) => ({
-        ...properties.find((p) => p.id === fo.propertyId)!,
-        shares: fo.shares,
-      }))
-    : [];
+    setIsAirdropping(true);
+    try {
+      const signature = await connection.requestAirdrop(publicKey, 10 * LAMPORTS_PER_SOL);
+      const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+      await connection.confirmTransaction({
+        signature,
+        blockhash: latestBlockhash.blockhash,
+        lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+      }, 'confirmed');
 
-  const totalPortfolioValue = [
-    ...ownedProperties.map((p) => p.price),
-    ...fractionalHoldings.map((fh) => (fh.price / fh.totalShares) * fh.shares),
-  ].reduce((a, b) => a + b, 0);
-
-  const formatPKR = (value: number) => {
-    if (value >= 10000000) {
-      return `${(value / 10000000).toFixed(1)} Cr`;
+      const lamports = await connection.getBalance(publicKey, 'confirmed');
+      setWalletBalance(lamports / LAMPORTS_PER_SOL);
+      toast.success('10 localnet SOL added to your connected wallet.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Localnet airdrop failed.';
+      toast.error(message);
+    } finally {
+      setIsAirdropping(false);
     }
-    if (value >= 100000) {
-      return `${(value / 100000).toFixed(1)} Lac`;
-    }
-    return value.toLocaleString();
   };
+
+  const issuerListings = publicKey
+    ? properties.filter((property) => property.owner === publicKey.toBase58())
+    : [];
+  const { holdings, loading: holdingsLoading, error: holdingsError } = useWalletPropertyHoldings(properties);
+  const totalPortfolioLamports = holdings.reduce(
+    (total, holding) => total + holding.shares * holding.pricePerShareLamports,
+    0,
+  );
 
   if (!isWalletConnected) {
     return (
@@ -47,7 +67,7 @@ const Dashboard = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="max-w-lg mx-auto text-center glass-card p-12"
+            className="max-w-lg mx-auto text-center cinematic-card p-12"
           >
             <Wallet className="w-16 h-16 text-primary mx-auto mb-6" />
             <h1 className="font-display text-3xl font-bold mb-4 text-foreground">
@@ -57,7 +77,7 @@ const Dashboard = () => {
               Connect your wallet to view your property portfolio, track investments,
               and manage your  real estate holdings.
             </p>
-            <Button variant="glow" size="lg" onClick={() => useMetaverseStore.getState().connectWallet()}>
+            <Button variant="glow" size="lg" onClick={() => setWalletModalVisible(true)}>
               Connect Wallet
             </Button>
           </motion.div>
@@ -79,12 +99,24 @@ const Dashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <h1 className="font-display text-4xl font-bold mb-2">
-            <span className="gradient-text-primary">Dashboard</span>
-          </h1>
-          <p className="text-muted-foreground">
-            Welcome back, {wallet?.address}
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="font-display text-4xl font-bold mb-2">
+                <span className="gradient-text-primary">Dashboard</span>
+              </h1>
+              <p className="text-muted-foreground font-mono text-xs">
+                Welcome back, {wallet?.address}
+              </p>
+            </div>
+            <Button
+              variant="glow"
+              onClick={() => setIsCreateOpen(true)}
+              className="gap-2"
+            >
+              <Building2 className="w-4.5 h-4.5" />
+              Tokenize Asset
+            </Button>
+          </div>
         </motion.div>
 
         {/* Stats cards */}
@@ -94,7 +126,7 @@ const Dashboard = () => {
           transition={{ delay: 0.2 }}
           className="grid md:grid-cols-4 gap-4 mb-8"
         >
-          <div className="glass-card p-6">
+          <div className="cinematic-card p-6 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                 <Coins className="w-5 h-5 text-primary" />
@@ -104,9 +136,26 @@ const Dashboard = () => {
             <div className="font-display text-3xl gradient-text-gold">
               {wallet?.balance.toFixed(2)} <span className="text-lg text-muted-foreground">SOL</span>
             </div>
+            <p className="text-[10px] text-muted-foreground font-mono mt-2">
+              Live from {isLocalnet ? 'local validator' : 'active Solana RPC'}
+            </p>
+            {isLocalnet && publicKey && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 gap-1.5"
+                disabled={isAirdropping}
+                onClick={requestLocalAirdrop}
+              >
+                {isAirdropping
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <Plus className="w-3.5 h-3.5" />}
+                Airdrop 10 SOL
+              </Button>
+            )}
           </div>
 
-          <div className="glass-card p-6">
+          <div className="cinematic-card p-6 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
                 <Building2 className="w-5 h-5 text-secondary" />
@@ -114,11 +163,11 @@ const Dashboard = () => {
               <span className="text-muted-foreground">Properties Owned</span>
             </div>
             <div className="font-display text-3xl text-foreground">
-              {ownedProperties.length}
+              {issuerListings.length}
             </div>
           </div>
 
-          <div className="glass-card p-6">
+          <div className="cinematic-card p-6 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
                 <PieChart className="w-5 h-5 text-purple-400" />
@@ -126,11 +175,11 @@ const Dashboard = () => {
               <span className="text-muted-foreground">Fractional Holdings</span>
             </div>
             <div className="font-display text-3xl text-foreground">
-              {fractionalHoldings.length}
+              {holdingsLoading ? <Loader2 className="w-7 h-7 animate-spin" /> : holdings.length}
             </div>
           </div>
 
-          <div className="glass-card p-6">
+          <div className="cinematic-card p-6 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
                 <TrendingUp className="w-5 h-5 text-accent" />
@@ -138,12 +187,13 @@ const Dashboard = () => {
               <span className="text-muted-foreground">Portfolio Value</span>
             </div>
             <div className="font-display text-3xl gradient-text-gold">
-              PKR {formatPKR(totalPortfolioValue)}
+              {(totalPortfolioLamports / LAMPORTS_PER_SOL).toFixed(6)} <span className="text-lg text-muted-foreground">SOL</span>
             </div>
+            <p className="text-[10px] text-muted-foreground font-mono mt-2">At current issuer contract prices</p>
           </div>
         </motion.div>
 
-        {/* Owned Properties */}
+        {/* Issuer Listings */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -151,7 +201,7 @@ const Dashboard = () => {
           className="mb-8"
         >
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display text-xl text-foreground">Owned Properties</h2>
+            <h2 className="font-display text-xl text-foreground">Your Tokenized Assets</h2>
             <Link to="/properties">
               <Button variant="ghost" size="sm">
                 Browse More
@@ -159,10 +209,10 @@ const Dashboard = () => {
             </Link>
           </div>
 
-          {ownedProperties.length > 0 ? (
+          {issuerListings.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {ownedProperties.map((property) => (
-                <div key={property.id} className="glass-card p-4">
+              {issuerListings.map((property) => (
+                <div key={property.id} className="holo-panel rounded-2xl p-4 transition-all duration-300 hover:border-primary/40 hover:-translate-y-1">
                   <div className="flex items-start gap-4">
                     <div
                       className="w-16 h-20 rounded-lg"
@@ -178,22 +228,16 @@ const Dashboard = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-2 mt-4">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <ExternalLink className="w-3 h-3 mr-1" />
-                      View NFT
-                    </Button>
-                    <Button variant="secondary" size="sm" className="flex-1">
-                      List for Sale
-                    </Button>
-                  </div>
+                  <Button variant="outline" size="sm" className="w-full mt-4" onClick={() => selectProperty(property)}>
+                    View On-Chain Asset
+                  </Button>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="glass-card p-8 text-center">
+            <div className="cinematic-card p-8 text-center">
               <Building2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">You don't own any properties yet.</p>
+              <p className="text-muted-foreground">This wallet has not issued any tokenized assets.</p>
               <Link to="/properties">
                 <Button variant="glow" className="mt-4">
                   Browse Properties
@@ -211,34 +255,45 @@ const Dashboard = () => {
         >
           <h2 className="font-display text-xl text-foreground mb-4">Fractional Holdings</h2>
 
-          {fractionalHoldings.length > 0 ? (
-            <div className="glass-card overflow-hidden">
-              <table className="w-full">
+          {holdingsError && (
+            <div className="glass-card p-4 mb-4 border border-red-500/40 text-red-400 text-sm">
+              Unable to verify holdings: {holdingsError}
+            </div>
+          )}
+
+          {holdings.length > 0 ? (
+            <div className="cinematic-card overflow-hidden">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px]">
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left p-4 text-muted-foreground font-medium">Property</th>
                     <th className="text-left p-4 text-muted-foreground font-medium">Shares</th>
                     <th className="text-left p-4 text-muted-foreground font-medium">Ownership</th>
-                    <th className="text-right p-4 text-muted-foreground font-medium">Value</th>
+                    <th className="text-left p-4 text-muted-foreground font-medium">Acquisition Cost</th>
+                    <th className="text-right p-4 text-muted-foreground font-medium">Current Notional</th>
+                    <th className="text-right p-4 text-muted-foreground font-medium">Trade</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {fractionalHoldings.map((holding) => (
-                    <tr key={holding.id} className="border-b border-border/50">
+                  {holdings.map((holding) => (
+                    <tr key={holding.property.id} className="border-b border-border/50">
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <div
                             className="w-8 h-8 rounded"
-                            style={{ backgroundColor: holding.color }}
+                            style={{ backgroundColor: holding.property.color }}
                           />
                           <div>
-                            <p className="text-foreground font-medium">{holding.name}</p>
-                            <p className="text-xs text-muted-foreground">{holding.location}</p>
+                            <p className="text-foreground font-medium">{holding.property.name}</p>
+                            <p className="text-xs text-green-400 flex items-center gap-1">
+                              <ShieldCheck className="w-3 h-3" /> On-chain verified
+                            </p>
                           </div>
                         </div>
                       </td>
                       <td className="p-4 text-foreground">
-                        {holding.shares} / {holding.totalShares}
+                        {holding.shares.toLocaleString()} / {holding.totalShares.toLocaleString()}
                       </td>
                       <td className="p-4">
                         <div className="w-full bg-muted rounded-full h-2">
@@ -251,23 +306,37 @@ const Dashboard = () => {
                           {((holding.shares / holding.totalShares) * 100).toFixed(1)}%
                         </span>
                       </td>
+                      <td className="p-4 text-foreground font-mono text-sm">
+                        {(holding.totalSpentLamports / LAMPORTS_PER_SOL).toFixed(9)} SOL
+                      </td>
+                      <td className="p-4 text-right text-foreground font-mono text-sm">
+                        {((holding.shares * holding.pricePerShareLamports) / LAMPORTS_PER_SOL).toFixed(9)} SOL
+                      </td>
                       <td className="p-4 text-right">
-                        <span className="gradient-text-gold font-display">
-                          PKR {formatPKR((holding.price / holding.totalShares) * holding.shares)}
-                        </span>
+                        <Button variant="outline" size="sm" disabled title="The deployed contract has no resale instruction.">
+                          <LockKeyhole className="w-3 h-3 mr-1" />
+                          Resale unavailable
+                        </Button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              </div>
+              <div className="p-4 border-t border-border/50 text-xs text-muted-foreground">
+                Shares and acquisition cost come from your SPL token account and investor receipt PDA. The deployed contract supports primary purchases only; no secondary sale or redemption instruction exists yet.
+              </div>
             </div>
           ) : (
-            <div className="glass-card p-8 text-center">
+            <div className="cinematic-card p-8 text-center">
               <PieChart className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No fractional holdings yet.</p>
+              <p className="text-muted-foreground">
+                {holdingsLoading ? 'Reading verified holdings from Solana...' : 'This wallet has no on-chain property shares.'}
+              </p>
             </div>
           )}
         </motion.div>
+        <CreatePropertyModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
       </main>
     </div>
   );

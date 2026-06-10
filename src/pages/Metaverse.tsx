@@ -60,7 +60,7 @@ const Metaverse = () => {
               </div>
               <div className="flex items-center justify-between mt-1">
                 <span className="text-xs text-muted-foreground">{property.location}</span>
-                <span className="text-xs text-accent font-medium">{property.priceInSol} SOL</span>
+                <span className="text-xs text-accent font-medium">{property.priceInPKR}</span>
               </div>
             </button>
           ))}

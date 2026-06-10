@@ -100,7 +100,7 @@ export const ParticleTextBackground = () => {
       antialias: true,
     });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -115,7 +115,7 @@ export const ParticleTextBackground = () => {
       // Generate text-shaped particle positions
       const gridSize = 80;
       const textWidth = text.length * 0.8;
-      let particleIndex = 0;
+      const particleIndex = 0;
 
       for (let i = 0; i < particleCount; i++) {
         // Random initial positions

@@ -3,7 +3,7 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { useMetaverseStore } from '@/store/metaverseStore';
 import type { Property } from '@/types/property';
-import { MapPin, TrendingUp, Users, Coins, ArrowRight, Globe, AlertCircle, Loader2 } from 'lucide-react';
+import { MapPin, Activity, Users, Coins, ArrowRight, Globe, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -11,8 +11,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { usePropertyChainData } from '@/hooks/usePropertyChainData';
 
-const PROPERTIES_API_URL = 'http://localhost:3001/api/properties';
+const PROPERTIES_API_URL = '/api/properties';
 
 // Register GSAP ScrollTrigger plugin
 if (typeof window !== 'undefined') {
@@ -86,8 +87,7 @@ function mapApiPropertyToProperty(row: ApiProperty): Property {
 }
 
 const Properties = () => {
-  const { selectProperty } = useMetaverseStore();
-  const [listings, setListings] = useState<Property[]>([]);
+  const { selectProperty, properties: storeProperties, fetchProperties } = useMetaverseStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -95,31 +95,20 @@ const Properties = () => {
   const gridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const controller = new AbortController();
-
     async function loadProperties() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(PROPERTIES_API_URL, { signal: controller.signal });
-        if (!res.ok) {
-          throw new Error(`Request failed (${res.status})`);
-        }
-        const data: ApiProperty[] = await res.json();
-        setListings(data.map(mapApiPropertyToProperty));
+        await fetchProperties();
       } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') return;
         setError(err instanceof Error ? err.message : 'Failed to load properties');
-        setListings([]);
       } finally {
         setLoading(false);
       }
     }
 
     void loadProperties();
-
-    return () => controller.abort();
-  }, []);
+  }, [fetchProperties]);
 
   // Get property image URL based on property type and area
   const getPropertyImage = (property: Property) => {
@@ -164,23 +153,8 @@ const Properties = () => {
     return typeMap[property.buildingType] || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop';
   };
 
-  // Tokenization helpers (deterministic “mock” stats derived from listing data)
   const getTokenPrice = (property: Property) => {
     return (property.price / property.totalShares).toFixed(0);
-  };
-
-  const getTokenizationProgress = (property: Property) => {
-    return (property.fractionalShares / property.totalShares) * 100;
-  };
-
-  const getInvestorsCount = (property: Property) => {
-    const base = Math.floor(property.fractionalShares / 10);
-    return base + (hashString(property.id) % 50);
-  };
-
-  const getGrowthPercentage = (property: Property) => {
-    const n = hashString(`${property.id}-growth`);
-    return ((n % 200) / 10 + 5).toFixed(1);
   };
 
   useEffect(() => {
@@ -274,10 +248,10 @@ const Properties = () => {
         observer.disconnect();
       };
     }
-  }, [listings]);
+  }, [storeProperties]);
 
   return (
-    <div className="min-h-screen bg-background grid-pattern">
+    <div className="min-h-screen bg-background depth-grid">
       <Navbar />
       
       <main className="container mx-auto px-4 pt-24 pb-12">
@@ -287,8 +261,7 @@ const Properties = () => {
             <span className="text-foreground">Real Estate</span>
           </h1>
           <p className="text-muted-foreground max-w-2xl">
-            Invest in premium Karachi properties through blockchain tokens. Own fractional shares 
-            and earn returns from real estate appreciation.
+            Inspect and purchase fractional property-share tokens using verified Solana ledger data.
           </p>
         </div>
 
@@ -320,7 +293,7 @@ const Properties = () => {
           </Alert>
         )}
 
-        {!loading && !error && listings.length === 0 && (
+        {!loading && !error && storeProperties.length === 0 && (
           <p className="text-muted-foreground py-12 text-center">
             No properties yet. Add listings via your API (POST /api/properties).
           </p>
@@ -330,18 +303,42 @@ const Properties = () => {
         <div ref={gridRef} className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {!loading &&
             !error &&
-            listings.map((property) => {
-            const tokenPrice = getTokenPrice(property);
-            const progress = getTokenizationProgress(property);
-            const investorsCount = getInvestorsCount(property);
-            const growthPercent = getGrowthPercentage(property);
-
-            return (
-              <motion.div
+            storeProperties.map((property) => (
+              <PropertyCard
                 key={property.id}
+                property={property}
+                tokenPrice={getTokenPrice(property)}
+                imageUrl={getPropertyImage(property)}
+                onSelect={() => selectProperty(property)}
+              />
+            ))}
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
+};
+
+interface PropertyCardProps {
+  property: Property;
+  tokenPrice: string;
+  imageUrl: string;
+  onSelect: () => void;
+}
+
+const PropertyCard = ({ property, tokenPrice, imageUrl, onSelect }: PropertyCardProps) => {
+  const { data: chainData, loading: chainLoading, error: chainError } = usePropertyChainData(property);
+  const soldShares = chainData ? chainData.totalSupply - chainData.availableShares : null;
+  const progress = chainData && chainData.totalSupply > 0
+    ? (soldShares! / chainData.totalSupply) * 100
+    : null;
+
+  return (
+              <motion.div
                 whileHover={{ y: -5, transition: { duration: 0.3 } }}
-                className="glass-card overflow-hidden group cursor-pointer"
-                onClick={() => selectProperty(property)}
+                className="cinematic-card overflow-hidden group cursor-pointer transition-all duration-500 hover:-translate-y-2 hover:border-primary/50"
+                onClick={onSelect}
               >
                 {/* Property Image */}
                 <div 
@@ -349,7 +346,7 @@ const Properties = () => {
                 >
                   {/* Property Image */}
                   <img
-                    src={getPropertyImage(property)}
+                    src={imageUrl}
                     alt={property.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     loading="lazy"
@@ -405,7 +402,7 @@ const Properties = () => {
                       {property.priceInPKR}
                     </span>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {property.priceInSol.toLocaleString()} SOL
+                      Declared listing value
                     </p>
                   </div>
 
@@ -427,34 +424,47 @@ const Properties = () => {
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs text-muted-foreground">Tokenization Progress</span>
                       <span className="text-xs font-medium text-foreground">
-                        {progress.toFixed(1)}%
+                        {chainLoading ? '...' : progress === null ? 'Unavailable' : `${progress.toFixed(1)}%`}
                       </span>
                     </div>
-                    <Progress value={progress} className="h-2" />
+                    <Progress value={progress ?? 0} className="h-2" />
                     <div className="flex items-center justify-between mt-1">
                       <span className="text-xs text-muted-foreground">
-                        {property.fractionalShares} / {property.totalShares} tokens
+                        {chainLoading
+                          ? 'Checking ledger...'
+                          : soldShares === null
+                          ? 'On-chain supply unavailable'
+                          : `${soldShares} / ${chainData?.totalSupply} tokens sold`}
                       </span>
                     </div>
                   </div>
 
-                  {/* Investors + Growth */}
+                  {/* Verified on-chain metrics */}
                   <div className="flex items-center justify-between mb-4 pb-4 border-b border-border/50">
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-secondary" />
                       <div>
-                        <p className="text-sm font-medium text-foreground">{investorsCount}</p>
-                        <p className="text-xs text-muted-foreground">Investors</p>
+                        <p className="text-sm font-medium text-foreground">
+                          {chainLoading ? '...' : chainData?.holderCount ?? 'Unavailable'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">On-chain holders</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="flex items-center gap-1 text-green-400">
-                        <TrendingUp className="w-4 h-4" />
-                        <span className="text-sm font-semibold">+{growthPercent}%</span>
+                      <div className="flex items-center gap-1 text-primary">
+                        <Activity className="w-4 h-4" />
+                        <span className="text-sm font-semibold">
+                          {chainLoading ? '...' : chainData?.transactions.length ?? 'Unavailable'}
+                        </span>
                       </div>
-                      <p className="text-xs text-muted-foreground">Growth</p>
+                      <p className="text-xs text-muted-foreground">Recent indexed txs</p>
                     </div>
                   </div>
+                  {chainError && (
+                    <p className="text-[10px] text-yellow-400 font-mono mb-3">
+                      On-chain metrics unavailable
+                    </p>
+                  )}
 
                   {/* Action Buttons */}
                   <div className="flex gap-2">
@@ -463,7 +473,7 @@ const Properties = () => {
                       className="flex-1 group/btn"
                       onClick={(e) => {
                         e.stopPropagation();
-                        selectProperty(property);
+                        onSelect();
                       }}
                     >
                       Invest Now
@@ -483,13 +493,6 @@ const Properties = () => {
                   </div>
                 </div>
               </motion.div>
-            );
-          })}
-        </div>
-      </main>
-
-      <Footer />
-    </div>
   );
 };
 

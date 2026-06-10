@@ -51,7 +51,7 @@ export const ParticleHeroText = () => {
     
     // Set appropriate size for hero section (not full window)
     renderer.setSize(canvasWidth, canvasHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;

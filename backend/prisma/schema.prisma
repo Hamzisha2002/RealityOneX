@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 enum UserRole {
@@ -30,7 +29,8 @@ model Property {
   id                 String        @id @default(uuid())
   title              String
   description        String?
-  price              Decimal       @db.Decimal(20, 2)
+  buildingType       String        @default("residential") @map("building_type")
+  price              Decimal
   totalFractions     Int           @map("total_fractions")
   availableFractions Int           @map("available_fractions")
   model3dUrl         String?       @map("model_3d_url")

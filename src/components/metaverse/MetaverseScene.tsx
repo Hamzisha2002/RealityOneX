@@ -13,10 +13,6 @@ interface MetaverseSceneProps {
 export const MetaverseScene = ({ isBackground = false }: MetaverseSceneProps) => {
   const properties = useMetaverseStore((state) => state.properties);
 
-  // Debug logging
-  console.log('MetaverseScene rendering with properties:', properties.length);
-  console.log('Properties data:', properties);
-
   return (
     <div style={{ width: '100%', height: '100%', background: '#0a0a15' }}>
       <Canvas 
@@ -44,10 +40,7 @@ export const MetaverseScene = ({ isBackground = false }: MetaverseSceneProps) =>
           <Ground />
           
           {/* Render Buildings */}
-          {properties.map((property) => {
-            console.log('Rendering building:', property.name, 'at position:', property.coordinates);
-            return <Building key={property.id} property={property} />;
-          })}
+          {properties.map((property) => <Building key={property.id} property={property} />)}
         </Suspense>
       </Canvas>
     </div>

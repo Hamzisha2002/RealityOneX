@@ -1,22 +1,21 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Home, LayoutDashboard, Map, Building2, LogIn } from 'lucide-react';
+import { Home, LayoutDashboard, Map, Building2, Database, Headphones } from 'lucide-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { useAuthStore } from '@/store/authStore';
-import { UserMenu } from '@/components/auth/UserMenu';
 import { Button } from '@/components/ui/button';
+import { useMetaverseStore } from '@/store/metaverseStore';
+import { R1XLogo } from '@/components/brand/R1XLogo';
 
 const navItems = [
   { path: '/', label: 'Home', icon: Home },
   { path: '/metaverse', label: 'Metaverse', icon: Map },
+  { path: '/vr', label: 'VR', icon: Headphones },
   { path: '/properties', label: 'Properties', icon: Building2 },
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
 ];
 
 export const Navbar = ({ transparent = false }: { transparent?: boolean }) => {
   const location = useLocation();
-  const navigate = useNavigate();
-  const { isAuthenticated } = useAuthStore();
 
   return (
     <>
@@ -30,17 +29,7 @@ export const Navbar = ({ transparent = false }: { transparent?: boolean }) => {
       >
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-display text-lg font-bold gradient-text-primary">
-                RealityOneX
-              </span>
-              <span className="text-xs text-muted-foreground -mt-1">
-                 Next Gen Ownership.
-              </span>
-            </div>
+            <R1XLogo />
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
@@ -75,21 +64,19 @@ export const Navbar = ({ transparent = false }: { transparent?: boolean }) => {
           </nav>
 
           <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 min-w-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => useMetaverseStore.getState().setShowBlockchainMonitor(!useMetaverseStore.getState().showBlockchainMonitor)}
+              className="border-primary/40 hover:border-primary text-primary font-mono text-[11px] gap-1.5 h-9"
+            >
+              <Database className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Chain Monitor</span>
+              <span className="sm:hidden">Monitor</span>
+            </Button>
             <div className="nav-wallet-adapter shrink-0 min-w-0 max-w-[min(100vw-7rem,12rem)] sm:max-w-[17rem]">
               <WalletMultiButton />
             </div>
-            {isAuthenticated ? (
-              <UserMenu />
-            ) : (
-              <Button
-                variant="neon"
-                onClick={() => navigate('/auth')}
-                className="gap-2"
-              >
-                <LogIn className="w-4 h-4" />
-                <span className="hidden sm:inline">Login</span>
-              </Button>
-            )}
           </div>
         </div>
       </motion.header>

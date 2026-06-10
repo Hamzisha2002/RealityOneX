@@ -15,9 +15,11 @@ export interface Property {
   fractionalShares: number;
   totalShares: number;
   image?: string;
+  model3dUrl?: string | null;
   isForSale: boolean;
   status: 'Available' | 'Sold' | 'Reserved';
   features: string[];
+  mintAddress?: string;
 }
 
 export interface UserWallet {
